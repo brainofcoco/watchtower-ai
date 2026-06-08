@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watchtower AI - Intelligent Observability Dashboard</title>
+    <!-- Tailwind CSS v3 Play CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            950: '#030712',
+                        },
+                        neon: {
+                            purple: '#8B5CF6',
+                            cyan: '#06B6D4',
+                            red: '#EF4444',
+                            orange: '#F59E0B',
+                            green: '#10B981'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Flowbite CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- ApexCharts CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #030712;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.07) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.07) 0px, transparent 50%);
+        }
+        /* Glassmorphism custom classes */
+        .glass-card {
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        .glass-modal {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        /* Custom scrollbar for raw logs */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen">
+    
+    <!-- Top Header Navigation -->
+    <nav class="border-b border-slate-800/60 bg-slate-950/60 backdrop-blur-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <!-- Brand Icon -->
+                    <div class="bg-gradient-to-tr from-neon-purple to-neon-cyan p-2 rounded-xl shadow-lg shadow-neon-purple/20">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="font-extrabold text-xl tracking-tight bg-gradient-to-r from-neon-purple to-neon-cyan bg-clip-text text-transparent">Watchtower AI</span>
+                        <span class="text-xs block text-slate-500 font-medium">Intelligent Observability Engine</span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <!-- System Health Badge -->
+                    <div id="system-health-badge" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neon-green/10 border border-neon-green/20 text-neon-green text-xs font-semibold tracking-wide">
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-green opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-neon-green"></span>
+                        </span>
+                        SYSTEM HEALTHY
+                    </div>
+                    
+                    <!-- Webhook Config Toggle -->
+                    <button id="webhook-settings-btn" data-modal-target="webhook-modal" data-modal-toggle="webhook-modal" class="px-4 py-2 bg-slate-800 hover:bg-slate-700/80 border border-slate-700/50 text-xs font-semibold rounded-xl transition-all duration-200 shadow-md">
+                        Webhook Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Workspace -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        
+        <!-- Stats Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Card 1: Active Incidents -->
+            <div class="glass-card rounded-2xl p-6 flex items-center justify-between group hover:border-neon-red/30 transition-all duration-300">
+                <div class="space-y-1">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Alerts</span>
+                    <h3 id="stat-active-alerts" class="text-3xl font-extrabold tracking-tight">0</h3>
+                </div>
+                <div class="p-3 bg-neon-red/10 border border-neon-red/20 rounded-xl text-neon-red group-hover:scale-110 transition-transform">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                </div>
+            </div>
+            
+            <!-- Card 2: Total Logs -->
+            <div class="glass-card rounded-2xl p-6 flex items-center justify-between group hover:border-neon-purple/30 transition-all duration-300">
+                <div class="space-y-1">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Telemetry Logs</span>
+                    <h3 id="stat-total-logs" class="text-3xl font-extrabold tracking-tight">0</h3>
+                </div>
+                <div class="p-3 bg-neon-purple/10 border border-neon-purple/20 rounded-xl text-neon-purple group-hover:scale-110 transition-transform">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Card 3: Active Services -->
+            <div class="glass-card rounded-2xl p-6 flex items-center justify-between group hover:border-neon-cyan/30 transition-all duration-300">
+                <div class="space-y-1">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Monitored Services</span>
+                    <h3 id="stat-active-services" class="text-3xl font-extrabold tracking-tight">0</h3>
+                </div>
+                <div class="p-3 bg-neon-cyan/10 border border-neon-cyan/20 rounded-xl text-neon-cyan group-hover:scale-110 transition-transform">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Card 4: System Average Latency -->
+            <div class="glass-card rounded-2xl p-6 flex items-center justify-between group hover:border-neon-orange/30 transition-all duration-300">
+                <div class="space-y-1">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Avg Latency</span>
+                    <h3 id="stat-avg-latency" class="text-3xl font-extrabold tracking-tight">0<span class="text-sm text-slate-500 font-normal"> ms</span></h3>
+                </div>
+                <div class="p-3 bg-neon-orange/10 border border-neon-orange/20 rounded-xl text-neon-orange group-hover:scale-110 transition-transform">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Chart 1: Ingestion / Request Throughput -->
+            <div class="glass-card rounded-2xl p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="text-lg font-bold">Request Throughput</h4>
+                        <p class="text-xs text-slate-500">Rollups per minute per service (Requests/min)</p>
+                    </div>
+                </div>
+                <div id="throughput-chart" class="w-full min-h-[300px]"></div>
+            </div>
+
+            <!-- Chart 2: Error Distribution -->
+            <div class="glass-card rounded-2xl p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="text-lg font-bold">Error Count History</h4>
+                        <p class="text-xs text-slate-500">Error counts rolled up by minute</p>
+                    </div>
+                </div>
+                <div id="errors-chart" class="w-full min-h-[300px]"></div>
+            </div>
+        </div>
+
+        <!-- Active Alerts & Incident Resolution Panel -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column: Incidents List (1/3 width) -->
+            <div class="glass-card rounded-2xl p-6 space-y-4 lg:col-span-1 flex flex-col max-h-[550px]">
+                <h4 class="text-lg font-bold flex items-center gap-2">
+                    Incident Logs
+                    <span id="alerts-count-badge" class="bg-neon-red/20 text-neon-red border border-neon-red/30 text-xs px-2 py-0.5 rounded-full font-semibold">0</span>
+                </h4>
+                
+                <div id="alerts-list-container" class="space-y-3 overflow-y-auto flex-1 pr-2">
+                    <!-- Dynamic Alerts Render -->
+                    <div class="text-slate-500 text-xs text-center py-8">No anomalies detected. System is running cleanly.</div>
+                </div>
+            </div>
+
+            <!-- Right Column: Selected Incident Analysis Detail (2/3 width) -->
+            <div class="glass-card rounded-2xl p-6 space-y-4 lg:col-span-2 flex flex-col justify-between min-h-[400px]">
+                <div class="space-y-6">
+                    <div class="flex items-start justify-between border-b border-slate-800 pb-4">
+                        <div>
+                            <span id="detail-alert-severity" class="hidden text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full border">CRITICAL</span>
+                            <h4 id="detail-alert-title" class="text-xl font-extrabold mt-1 text-slate-300">Select an Incident</h4>
+                            <p id="detail-alert-desc" class="text-xs text-slate-500 mt-1">Select an incident from the logs list to inspect AI-assisted analysis and root-cause remediation details.</p>
+                        </div>
+                        <button id="resolve-alert-btn" class="hidden px-4 py-2 bg-neon-cyan/15 hover:bg-neon-cyan/25 border border-neon-cyan/30 text-neon-cyan text-xs font-semibold rounded-xl transition-all duration-200">
+                            Acknowledge & Resolve
+                        </button>
+                    </div>
+
+                    <!-- AI Analysis Detail Panels -->
+                    <div id="ai-detail-panels" class="hidden grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Root Cause Card -->
+                        <div class="bg-slate-900/50 border border-slate-850 p-5 rounded-xl space-y-2">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-neon-purple flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-neon-purple"></span>
+                                Root Cause
+                            </span>
+                            <p id="detail-root-cause" class="text-xs text-slate-300 leading-relaxed font-medium"></p>
+                        </div>
+                        <!-- Impact Assessment -->
+                        <div class="bg-slate-900/50 border border-slate-850 p-5 rounded-xl space-y-2">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-neon-orange flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-neon-orange"></span>
+                                Impact Assessment
+                            </span>
+                            <p id="detail-impact" class="text-xs text-slate-300 leading-relaxed font-medium"></p>
+                        </div>
+                        <!-- Remediation Plan -->
+                        <div class="bg-slate-900/50 border border-slate-850 p-5 rounded-xl space-y-2">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-neon-cyan flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-neon-cyan"></span>
+                                Mitigation & Steps
+                            </span>
+                            <p id="detail-remediation" class="text-xs text-slate-300 leading-relaxed font-mono whitespace-pre-line"></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="ai-analysis-footer" class="text-[10px] text-slate-600 font-medium text-right border-t border-slate-800/40 pt-3">
+                    Watchtower AI • LLM incident analysis matching pattern heuristics
+                </div>
+            </div>
+        </div>
+
+        <!-- Telemetry Feeds, Webhooks, and Simulator Controls -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Col 1: Real-time Ingestion Stream (1/3 width) -->
+            <div class="glass-card rounded-2xl p-6 space-y-4 lg:col-span-1 flex flex-col max-h-[450px]">
+                <h4 class="text-lg font-bold">Telemetry Live Stream</h4>
+                <div class="flex items-center gap-2 mb-2">
+                    <input type="text" id="log-search" placeholder="Filter logs..." class="w-full bg-slate-900/80 border border-slate-850 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-neon-cyan" />
+                    <select id="log-level-filter" class="bg-slate-900 border border-slate-850 rounded-xl px-2 py-1.5 text-xs text-slate-300 focus:outline-none">
+                        <option value="">All</option>
+                        <option value="INFO">INFO</option>
+                        <option value="WARNING">WARN</option>
+                        <option value="ERROR">ERROR</option>
+                        <option value="CRITICAL">CRIT</option>
+                    </select>
+                </div>
+                <div id="live-logs-container" class="flex-1 overflow-y-auto font-mono text-[10px] text-slate-400 space-y-2 bg-slate-950/40 border border-slate-900 rounded-xl p-3 pr-2">
+                    <!-- Logs stream inside -->
+                    <div class="text-slate-600 text-center py-12">Streaming inactive... start simulator.py or click 'Trigger Spike' below.</div>
+                </div>
+            </div>
+
+            <!-- Col 2: Simulator Panel (1/3 width) -->
+            <div class="glass-card rounded-2xl p-6 space-y-6 lg:col-span-1">
+                <div>
+                    <h4 class="text-lg font-bold">Chaos Simulation Hub</h4>
+                    <p class="text-xs text-slate-500">Inject artificial error bursts to test statistical check and webhooks in real-time.</p>
+                </div>
+                
+                <div class="space-y-4">
+                    <button onclick="triggerSimulationSpike('frontend-gateway')" class="w-full py-3 px-4 bg-slate-900/60 hover:bg-slate-850 border border-slate-800 rounded-xl text-left text-xs font-semibold flex items-center justify-between group transition-all duration-200">
+                        <div>
+                            <span class="text-slate-200 font-bold block">frontend-gateway</span>
+                            <span class="text-[10px] text-slate-500 font-normal">Simulate minor gateway outage</span>
+                        </div>
+                        <span class="text-neon-orange group-hover:translate-x-1 transition-transform">Trigger Spike &rarr;</span>
+                    </button>
+                    
+                    <button onclick="triggerSimulationSpike('user-service')" class="w-full py-3 px-4 bg-slate-900/60 hover:bg-slate-850 border border-slate-800 rounded-xl text-left text-xs font-semibold flex items-center justify-between group transition-all duration-200">
+                        <div>
+                            <span class="text-slate-200 font-bold block">user-service</span>
+                            <span class="text-[10px] text-slate-500 font-normal">Simulate authentication failure rates</span>
+                        </div>
+                        <span class="text-neon-orange group-hover:translate-x-1 transition-transform">Trigger Spike &rarr;</span>
+                    </button>
+                    
+                    <button onclick="triggerSimulationSpike('payment-service')" class="w-full py-3 px-4 bg-slate-900/60 hover:bg-slate-850 border border-slate-800 rounded-xl text-left text-xs font-semibold flex items-center justify-between group transition-all duration-200">
+                        <div>
+                            <span class="text-slate-200 font-bold block">payment-service</span>
+                            <span class="text-[10px] text-slate-500 font-normal">Simulate database connection pool limit lockup</span>
+                        </div>
+                        <span class="text-neon-red group-hover:translate-x-1 transition-transform">Trigger Spike &rarr;</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Col 3: Webhook Verification Playground (1/3 width) -->
+            <div class="glass-card rounded-2xl p-6 space-y-4 lg:col-span-1 flex flex-col max-h-[450px]">
+                <div>
+                    <h4 class="text-lg font-bold">Webhook Deliveries</h4>
+                    <p class="text-xs text-slate-500">Live feeds hitting the test-webhook-receiver endpoint.</p>
+                </div>
+                
+                <div id="webhook-receiver-container" class="flex-1 overflow-y-auto space-y-3 bg-slate-950/40 border border-slate-900 rounded-xl p-3 pr-2">
+                    <!-- Webhook payloads listed here -->
+                    <div class="text-slate-600 text-xs text-center py-12">Waiting for webhook payloads...</div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Webhook Modal (Flowbite based) -->
+    <div id="webhook-modal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+        <div class="relative p-4 w-full max-w-2xl max-h-full">
+            <!-- Modal content -->
+            <div class="relative rounded-2xl shadow glass-modal text-slate-100">
+                <!-- Modal header -->
+                <div class="flex items-center justify-between p-4 md:p-5 border-b border-slate-800 rounded-t">
+                    <h3 class="text-lg font-semibold">
+                        Webhook Integrations
+                    </h3>
+                    <button type="button" class="text-slate-400 bg-transparent hover:bg-slate-800 hover:text-white rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-toggle="webhook-modal">
+                        <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                        </svg>
+                        <span class="sr-only">Close modal</span>
+                    </button>
+                </div>
+                <!-- Modal body -->
+                <div class="p-4 md:p-5 space-y-4">
+                    <form id="webhook-form" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Endpoint Name</label>
+                                <input type="text" id="webhook-name" placeholder="e.g. Slack Dispatcher" required class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-neon-cyan" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Target URL</label>
+                                <input type="url" id="webhook-url" placeholder="e.g. https://hooks.slack.com/services/..." required class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-neon-cyan" />
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center pt-2">
+                            <span class="text-[10px] text-slate-500">Auto-registers local receiver on click: <code class="bg-slate-900 px-1 py-0.5 rounded text-neon-cyan">http://127.0.0.1:8000/api/v1/test-webhook-receiver</code></span>
+                            <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-neon-purple to-neon-cyan text-white text-xs font-bold rounded-xl hover:opacity-90 transition shadow-md shadow-neon-purple/20">
+                                Register Webhook
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <!-- Configured Webhooks List -->
+                    <div class="border-t border-slate-800 pt-4 space-y-3">
+                        <h5 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Configured Targets</h5>
+                        <div id="configured-webhooks-container" class="space-y-2.5 max-h-[200px] overflow-y-auto">
+                            <!-- Dynamic list of webhooks -->
+                            <div class="text-slate-600 text-xs py-4 text-center">No webhook configs registered. Add one above.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Flowbite JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
